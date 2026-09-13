@@ -1,0 +1,47 @@
+# ATmega128 + nRF24L01 무선통신 지연시간/손실률 측정
+
+ATmega128 보드 1개에 nRF24L01 모듈 2개(TX/RX)를 동시에 연결하여, 채널별 무선통신 지연시간과 패킷 손실률을 측정한 프로젝트입니다.
+
+## 구성
+
+- **MCU**: ATmega128 (Atmel Studio 7.0 프로젝트)
+- **무선 모듈**: nRF24L01 x2 (모듈 A = TX, 모듈 B = RX, 하드웨어 Auto-ACK 기능 사용)
+- **측정 방식**: Timer1으로 "CE 펄스 시작 ~ ACK 수신 확인(TX_DS)까지" 왕복 지연시간(RTT) 측정
+- **출력**: UART(9600bps)로 CSV 형태 결과 출력 → PC에서 로깅/그래프화
+
+## 배선
+
+SPI(SCK/MOSI/MISO)는 두 모듈이 공유하고, CE/CSN 핀만 모듈별로 분리했습니다.
+
+| 신호 | 모듈 A (TX) | 모듈 B (RX) |
+|---|---|---|
+| CE | PF2 | PF4 |
+| CSN | PF3 | PF5 |
+
+- SCK/MOSI/MISO/GND: 보드 ISP 6핀 헤더에서 공통으로 인출 (1=MISO, 2=VCC, 3=SCK, 4=MOSI, 5=RESET, 6=GND)
+- 두 모듈 VCC는 3.3V(레귤레이터 경유), GND 공통
+- 전원 안정화를 위해 각 모듈 VCC-GND 사이에 100uF (또는 10uF 여러 개 병렬) 커패시터 연결
+
+## 동작 방식
+
+1. 5개 채널(2, 40, 76, 100, 120)을 순차적으로 스윕
+2. 채널마다 30개 패킷(`PACKETS_PER_CHANNEL`)을 20ms 간격으로 전송
+3. 패킷마다 시퀀스 번호 + 마커 + XOR 체크섬을 담은 4바이트 payload 전송
+4. Auto-ACK 응답 성공 여부와 왕복 지연시간(Timer1 tick, 0.5us 단위)을 기록
+5. 채널별로 `channel,total,success,fail,avg_latency_us,plos_cnt,arc_cnt` 형식의 CSV 라인을 UART로 출력
+6. 한 사이클(5개 채널) 종료 후 1초 대기하고 무한 반복
+
+`OBSERVE_TX` 레지스터에서 `PLOS_CNT`(누적 패킷 손실), `ARC_CNT`(마지막 전송 재시도 횟수)도 함께 수집합니다.
+
+## 파일 구성
+
+- [latency_test_main.c](latency_test_main.c) — 메인 로직 (UART, Timer1, 채널 스윕, 측정 루프)
+- [nrf24l01_v2.c](nrf24l01_v2.c) / [nrf24l01_v2.h](nrf24l01_v2.h) — nRF24L01 SPI 드라이버 (모듈 2개를 동시에 다루도록 구조체 기반으로 설계, CE/CSN 핀만 다르게 지정하면 SPI는 공유)
+- `wirelessproject.atsln` / `wirelessproject.cproj` — Atmel Studio 7.0 프로젝트 파일
+
+## 결과 활용
+
+UART로 출력되는 CSV를 PC에서 시리얼로 받아 저장하면, 채널별 평균 지연시간과 패킷 손실률을 비교/그래프화할 수 있습니다.
+
+---
+본 저장소는 교육 목적의 개인 프로젝트 기록입니다.
