@@ -22,6 +22,46 @@ SPI(SCK/MOSI/MISO)는 두 모듈이 공유하고, CE/CSN 핀만 모듈별로 분
 - 두 모듈 VCC는 3.3V(레귤레이터 경유), GND 공통
 - 전원 안정화를 위해 각 모듈 VCC-GND 사이에 100uF (또는 10uF 여러 개 병렬) 커패시터 연결
 
+### 배선도
+
+```mermaid
+flowchart LR
+    subgraph MCU["ATmega128"]
+        ISP["ISP 6핀 헤더\n(MISO/SCK/MOSI/GND)"]
+        PF2["PF2"]
+        PF3["PF3"]
+        PF4["PF4"]
+        PF5["PF5"]
+        REG["3.3V 레귤레이터"]
+    end
+
+    subgraph TX["모듈 A (TX)"]
+        TX_SPI["SCK/MOSI/MISO"]
+        TX_CE["CE"]
+        TX_CSN["CSN"]
+        TX_PWR["VCC/GND\n+ 커패시터"]
+    end
+
+    subgraph RX["모듈 B (RX)"]
+        RX_SPI["SCK/MOSI/MISO"]
+        RX_CE["CE"]
+        RX_CSN["CSN"]
+        RX_PWR["VCC/GND\n+ 커패시터"]
+    end
+
+    ISP --> TX_SPI
+    ISP --> RX_SPI
+    PF2 --> TX_CE
+    PF3 --> TX_CSN
+    PF4 --> RX_CE
+    PF5 --> RX_CSN
+    REG --> TX_PWR
+    REG --> RX_PWR
+```
+
+- SPI(SCK/MOSI/MISO)와 GND는 두 모듈이 공통 버스로 연결되고, CE/CSN만 모듈별 전용 핀으로 분리
+- MCU는 CSN으로 어떤 모듈과 통신할지 선택하고, CE로 해당 모듈의 송신/수신 동작을 트리거
+
 ## 동작 방식
 
 1. 5개 채널(2, 40, 76, 100, 120)을 순차적으로 스윕
